@@ -1,9 +1,10 @@
 #include "SerialPort.h"
+#include "VFDConfig.h"
 
 volatile static uint8_t uart_tx_busy = 0;
 volatile static uint16_t uart_rx_unread = 0;
 volatile static uint16_t uart_rx_writepos = 0;
-volatile static uint8_t uart_rx_buffer[RX_BUFFER_SIZE] = {0x0};
+volatile static uint8_t uart_rx_buffer[COMM_RX_BUFFER] = {0x0};
 
 #ifdef SerialPort_RX_EN
 ISR(USART_RX_vect) {
@@ -11,7 +12,7 @@ ISR(USART_RX_vect) {
   uart_rx_buffer[uart_rx_writepos++] = UDR0;
 
   // Make write position wrap around the buffer
-  if (uart_rx_writepos >= RX_BUFFER_SIZE) uart_rx_writepos = 0;
+  if (uart_rx_writepos >= COMM_RX_BUFFER) uart_rx_writepos = 0;
 
   // New unread byte
   uart_rx_unread++;
@@ -83,7 +84,7 @@ uint8_t uart_read_byte() {
   uart_rx_unread--;
 
   // Make read position wrap around the buffer
-  if (uart_rx_readpos >= RX_BUFFER_SIZE)
+  if (uart_rx_readpos >= COMM_RX_BUFFER)
     uart_rx_readpos = 0;
 
   return data;

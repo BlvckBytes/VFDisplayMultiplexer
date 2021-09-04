@@ -14,14 +14,23 @@ void vfd_mp_setup_pins() {
   PORTB &= ~(PIN_COL_CLK_MASK | PIN_COL_DATA_MASK | PIN_PIXEL_CLK_MASK | PIN_PIXEL_DATA_MASK);
 }
 
+static void vfd_mp_pulse_col_clk() {
+  PORTB |= PIN_COL_CLK_MASK;
+  DELAY_CYCLES_CLK;
+  PORTB &= ~PIN_COL_CLK_MASK;
+}
+
+static void vfd_mp_pulse_pixel_clk() {
+  PORTB |= PIN_PIXEL_CLK_MASK;
+  DELAY_CYCLES_CLK;
+  PORTB &= ~PIN_PIXEL_CLK_MASK;
+}
+
 void vfd_mp_clear_pixel_registers() {
   PORTB &= ~PIN_PIXEL_DATA_MASK;
   DELAY_CYCLES_DATARDY;
-  for (int i = TOTAL_PIXELS_PER_COL - 1; i >= 0; i--) {
-    PORTB |= PIN_PIXEL_CLK_MASK;
-    DELAY_CYCLES_CLK;
-    PORTB &= ~PIN_PIXEL_CLK_MASK;
-  }
+  for (int i = TOTAL_PIXELS_PER_COL - 1; i >= 0; i--)
+    vfd_mp_pulse_pixel_clk();
 }
 
 void vfd_mp_clear_display(VFDHandle* handle) {
@@ -30,11 +39,8 @@ void vfd_mp_clear_display(VFDHandle* handle) {
   vfd_mp_clear_text(handle);
   PORTB &= ~PIN_COL_DATA_MASK;
   DELAY_CYCLES_DATARDY;
-  for (int i = 0; i < CHAR_COLS; i++) {
-    PORTB |= PIN_COL_CLK_MASK;
-    DELAY_CYCLES_CLK;
-    PORTB &= ~PIN_COL_CLK_MASK;
-  }
+  for (int i = 0; i < CHAR_COLS; i++)
+    vfd_mp_pulse_col_clk();
 }
 
 void vfd_mp_clear_underline(VFDHandle* handle) {
@@ -98,9 +104,7 @@ void vfd_mp_put_row_chars(VFDHandle* handle, uint8_t col) {
       // Shift in current value bit
       PORTB = value ? (PORTB | PIN_PIXEL_DATA_MASK) : (PORTB & (~PIN_PIXEL_DATA_MASK));
       DELAY_CYCLES_DATARDY;
-      PORTB |= PIN_PIXEL_CLK_MASK;
-      DELAY_CYCLES_CLK;
-      PORTB &= ~PIN_PIXEL_CLK_MASK;
+      vfd_mp_pulse_pixel_clk();
 
       // Next bit (top down)
       curr_bit_mask = curr_bit_mask >> 1;
@@ -113,11 +117,8 @@ void vfd_mp_put_row_chars(VFDHandle* handle, uint8_t col) {
     if (i != CHAR_ROWS - 1) {
       PORTB &= ~PIN_PIXEL_DATA_MASK;
       DELAY_CYCLES_DATARDY;
-      for (int j = 0; j < UNUSED_INTERROWS; j++) {
-        PORTB |= PIN_PIXEL_CLK_MASK;
-        DELAY_CYCLES_CLK;
-        PORTB &= ~PIN_PIXEL_CLK_MASK;
-      }
+      for (int j = 0; j < UNUSED_INTERROWS; j++)
+        vfd_mp_pulse_pixel_clk();
     }
   }
 }
@@ -139,9 +140,7 @@ void vfd_mp_handle(VFDHandle* handle) {
     }
 
     // Clock in col bit
-    PORTB |= PIN_COL_CLK_MASK;
-    DELAY_CYCLES_CLK;
-    PORTB &= ~PIN_COL_CLK_MASK;
+    vfd_mp_pulse_col_clk();
 
     // Turn off again, then leave off for all other iterations
     if (i == 0)
@@ -163,9 +162,8 @@ void vfd_mp_set_text(VFDHandle* handle, uint8_t row, const char* text) {
 }
 
 void vfd_mp_clear_text(VFDHandle* handle) {
-  for (int i = 0; i < CHAR_ROWS; i++) {
+  for (int i = 0; i < CHAR_ROWS; i++)
     vfd_mp_clear_text_row(handle, i);
-  }
 }
 
 void vfd_mp_clear_text_row(VFDHandle* handle, uint8_t row) {

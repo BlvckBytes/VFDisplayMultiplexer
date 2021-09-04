@@ -5,8 +5,6 @@
 #ifndef SerialPort_H_
 #define SerialPort_H_
 
-#define RX_BUFFER_SIZE 64
-
 #define SerialPort_RX_EN
 
 // Disable transmit to save space, not needed
