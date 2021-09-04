@@ -6,8 +6,8 @@ int main(void) {
   // Initialize display
   VFDHandle handle = vfd_init_handle();
   
-  // Initialize serial at 9600 baud
-  uart_init(9600, 0x0);
+  // Initialize serial communications
+  uart_init(57600, 0x0);
 
   while (1) {
     // Multiplex display

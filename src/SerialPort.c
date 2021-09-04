@@ -5,6 +5,7 @@ volatile static uint16_t uart_rx_unread = 0;
 volatile static uint16_t uart_rx_writepos = 0;
 volatile static uint8_t uart_rx_buffer[RX_BUFFER_SIZE] = {0x0};
 
+#ifdef SerialPort_RX_EN
 ISR(USART_RX_vect) {
   // Write I/O buffer into rx buffer at next write position
   uart_rx_buffer[uart_rx_writepos++] = UDR0;
@@ -15,9 +16,12 @@ ISR(USART_RX_vect) {
   // New unread byte
   uart_rx_unread++;
 }
+#endif
 
 // Done with transmitting
+#ifdef SerialPort_TX_EN
 ISR(USART_TX_vect) { uart_tx_busy = 0; }
+#endif
 
 void uart_init(uint32_t baud, uint8_t high_speed) {
   // Enable high speed flag
@@ -32,12 +36,19 @@ void uart_init(uint32_t baud, uint8_t high_speed) {
   UBRR0L = (baud & 0x00FF); 
 
   // Enable RX, TX and both interrupts
-  UCSR0B |= (0x1 << TXEN0) | (0x1 << TXCIE0) | (0x1 << RXEN0) | (0x1 << RXCIE0);
+  #ifdef SerialPort_TX_EN
+  UCSR0B |= (0x1 << TXEN0) | (0x1 << TXCIE0);
+  #endif
+
+  #ifdef SerialPort_RX_EN
+  UCSR0B |= (0x1 << RXEN0) | (0x1 << RXCIE0);
+  #endif
 
   // Enable global interrupts
   sei();
 }
 
+#ifdef SerialPort_TX_EN
 void uart_transmit_byte(uint8_t byte) {
   while (uart_tx_busy); // Wait if transmitter is already busy
   uart_tx_busy = 1;
@@ -57,7 +68,9 @@ void uart_transmit_string(char* string) {
   // Send termination char
   uart_transmit_byte('\0');
 }
+#endif
 
+#ifdef SerialPort_RX_EN
 uint8_t uart_unread_count() {
   return uart_rx_unread;
 }
@@ -75,3 +88,4 @@ uint8_t uart_read_byte() {
 
   return data;
 }
+#endif
