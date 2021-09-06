@@ -19,15 +19,15 @@
 #define PIN_COL_CLK 2 // Column registers clock line
 #define PIN_COL_DATA 3 // Column registers data line
 
-#define COMM_BAUD 74880
+#define COMM_BAUD 57600
 
 // As many bytes as there are columns, +2 (1 for action, 1 for row), times rows, times 2 (text and underlines)
 // This can be decreased if the baud rate gets decreased, or the F_CPU is high enough
 // Otherwise you'll run a risk to loose data and get corrupted messages on fast transitions
 #define COMM_RX_BUFFER ((CHAR_COLS + 2) * CHAR_ROWS * 2)
 
-#define DELAY_CYCLES_CLK asm_delay_loop(5) // Clock pulse length, in n * 3 cycles
-#define DELAY_CYCLES_DATARDY asm_delay_loop(2) // Stabilize data signals before clock-edge, in n * 3 cycless
+#define DELAY_CYCLES_CLK asm_delay_loop(8) // Clock pulse length, in n * 3 cycles
+#define DELAY_CYCLES_DATARDY asm_delay_loop(4) // Stabilize data signals before clock-edge, in n * 3 cycless
 
 //////////////////////////////////////
 //         Utility macros           //

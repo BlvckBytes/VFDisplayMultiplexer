@@ -1,41 +1,78 @@
 #include "VFDCommands.h"
 
+/*
+  Protocol definition:
+  <Start-Char><Command Char><Row Index><COLCOUNT * char or less with \0 at the end as data>
+
+  T - Text characters
+  U - Underline bits
+
+  Examples:
+  - \2T0This is the content of row 0\0
+  - \2T1This is the content of row 1\0
+  - \2U00000000000000000000000000000000000000001 // Last char underlined for row 0
+  - \2U11\0 // First char underlined for row 1
+
+  Start char is used to "synchronize"
+ */
+
 void handle_uart_commands(VFDHandle *handle) {
-  static uint8_t col_index = 0, row_index = UINT8_MAX;
-  static char action = 0;
+  volatile static uint8_t col_index = 0, row_index = UINT8_MAX;
+  volatile static char action = 0;
+  volatile static _Bool command_mode = 0;
 
   while(uart_unread_count() > 0) {
     char value = (char) uart_read_byte();
 
-    // No active action, set from first byte
+    // Char is unused control symbol, filter it out
+    if ((value >= 3 && value <= 31) || value == 1 || value == 127)
+      continue;
+
+    // Wait for command mode
+    // Guard until command mode has been entered by \2
+    if (!command_mode) {
+      // Enter command mode
+      if (value == 2) {
+        command_mode = 1;
+        action = 0;
+      }
+      continue;
+    }
+
+    // Listen for action to perform
     if (action == 0) {
-      // Only accept proper commands
-      if (value == 'T' || value == 'U')
-        action = value;
+      // Invalid action provided, quit command mode
+      if (value != 'T' && value != 'U') {
+        command_mode = 0;
+        continue;
+      }
+
+      // Change to desired action, enable row listen
+      action = value;
+      row_index = UINT8_MAX;
       continue;
     }
 
-    // No active row, set from second byte
+    // Listen for row
     if (row_index == UINT8_MAX) {
-      // Parse row digit if in ASCII range, keep at 0 otherwise as fallback
-      if (value >= '0' || value <= '9')
-        row_index = value - '0';
+      // Invalid row provided, quit command mode
+      if (value < '0' && value > '9') {
+        command_mode = 0;
+        continue;
+      }
+
+      // Change to desired row, constrain upwards
+      row_index = value - '0';
+      if (row_index >= CHAR_COLS) row_index = 0;
+      col_index = 0; // Start out at column 0
       continue;
     }
 
-    // Invalid request, skip all further bytes
-    if (row_index >= CHAR_ROWS) continue;
-
-    // Command end has been reached, reset variables
-    if (col_index >= CHAR_COLS || value == '\0') {
-      col_index = 0;
-      row_index = -1;
-      action = 0;
-      break;
+    // Command has been terminated
+    if (value == '\0') {
+      command_mode = 0;
+      continue;
     }
-
-    // If char is unprintable, skip it, without incrementing col_index
-    if (value >= 0 && value <= 31) continue;
 
     switch (action) {
 
@@ -43,6 +80,8 @@ void handle_uart_commands(VFDHandle *handle) {
       case 'T':
         // Clear display before setting first char
         if (col_index == 0) vfd_mp_clear_text_row(handle, row_index);
+
+        // Set char of current column to current char
         vfd_mp_set_char(handle, row_index, col_index, value);
         break;
 
@@ -58,5 +97,11 @@ void handle_uart_commands(VFDHandle *handle) {
 
     // Next col
     col_index++;
+
+    // Command has reached max data length, quit
+    if (col_index == CHAR_COLS) {
+      command_mode = 0;
+      continue;
+    }
   }
 }

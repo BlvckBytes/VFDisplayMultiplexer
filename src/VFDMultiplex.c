@@ -74,6 +74,8 @@ void vfd_mp_set_underline_row(VFDHandle* handle, uint8_t row, _Bool state) {
 
 void vfd_mp_put_row_chars(VFDHandle* handle, uint8_t col) {
   // Protect from out of range memory corruption
+  // Catch last row double-draw
+  if (col == CHAR_COLS) col = CHAR_COLS - 1;
   if (col > CHAR_COLS) return;
 
   // Calculate index of target uchar from active_underlines
@@ -118,7 +120,7 @@ void vfd_mp_put_row_chars(VFDHandle* handle, uint8_t col) {
       PORTB &= ~PIN_PIXEL_DATA_MASK;
       DELAY_CYCLES_DATARDY;
       for (int j = 0; j < UNUSED_INTERROWS; j++)
-        vfd_mp_pulse_pixel_clk();
+      vfd_mp_pulse_pixel_clk();
     }
   }
 }
@@ -127,7 +129,8 @@ void vfd_mp_handle(VFDHandle* handle) {
   // No operations during shutdown
   if (handle->shutdown_state) return;
 
-  for (int i = 0; i < CHAR_COLS; i++) {
+  // One more column that there is, so last column has constant brightness too
+  for (int i = 0; i <= CHAR_COLS; i++) {
 
     // Update display contents for current col
     vfd_mp_put_row_chars(handle, i);
